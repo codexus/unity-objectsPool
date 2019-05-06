@@ -11,8 +11,6 @@ public class Pool
     private int size = 2; // initial size of the pool
     private GameObject m_poolObject; // Prefab that will be instatitated
     private Transform m_objectsHolder; // Prefab that will be instatitated
-
-    //private Stack<GameObject> m_pool = new Stack<GameObject>(); // pool stack
     private GameObject[] m_poolStack;
 
     private int m_activeCount; // number of objects currently on scene
@@ -45,24 +43,25 @@ public class Pool
     /// <summary>
     /// Creates a new Pool for holding game objects.
     /// </summary>
-    /// <param name="gameObject">GameObject prefab to spawn</param>
+    /// <param name="pooledObject">GameObject prefab to spawn</param>
     /// <param name="parentTransform">Transform parent for spawned objects. If the value is left as null, 
     /// the spawned objects will be attached to scene root.</param>
-    public Pool(GameObject gameObject, Transform parentTransform = null)
+    public Pool(GameObject pooledObject, Transform parentTransform = null)
     {
         m_poolStack = new GameObject[size];
         m_objectsHolder = parentTransform;
-        m_poolObject = gameObject;
+        m_poolObject = pooledObject;
     }
+
 
     /// <summary>
     /// Spawns the object. Note that the Awake() and Start() will be called only once. OnDisable() and OnEnable() will be called insted,
     /// since the method calls SetActive(true) on spawned Object;
     /// </summary>
     /// <returns>Instance from prefab</returns>
-    public GameObject Spawn()
+    public T Spawn<T>() where T : Component
     {
-        return Spawn(Vector3.zero);
+        return Spawn<T>(Vector3.zero);
     }
 
     /// <summary>
@@ -72,9 +71,9 @@ public class Pool
     /// <param name="position">Position where the object shoul be spawned</param>
     /// <returns>Instance from prefab</returns>
 
-    public GameObject Spawn(Vector3 position)
+    public T Spawn<T>(Vector3 position) where T : Component
     {
-        return Spawn(position, Quaternion.identity);
+        return Spawn<T>(position, Quaternion.identity);
     }
 
     /// <summary>
@@ -84,7 +83,7 @@ public class Pool
     /// <param name="position">Position where the object shoul be spawned</param>
     /// <param name="rotation">Rotation of the spawned object</param>
     /// <returns></returns>
-    public GameObject Spawn(Vector3 position, Quaternion rotation)
+    public T Spawn<T>(Vector3 position, Quaternion rotation) where T : Component
     {
         GameObject go; // object to return
 
@@ -92,12 +91,17 @@ public class Pool
         {
             if (m_objectsHolder == null)
             {
-                go = GameObject.Instantiate(m_poolObject, position, rotation) as GameObject;
+                go = GameObject.Instantiate(m_poolObject, position, rotation);
             }
             else
             {
-                go = GameObject.Instantiate(m_poolObject, position, rotation, m_objectsHolder) as GameObject;
+                go = GameObject.Instantiate(m_poolObject, position, rotation, m_objectsHolder);
             }
+
+            PoolObject po = go.GetComponent<PoolObject>();
+            if(po == null) po = go.AddComponent<PoolObject>();
+
+            po.Init(this);
         }
         else
         {
@@ -107,18 +111,18 @@ public class Pool
         // set position and rotation
         go.transform.position = position; 
         go.transform.rotation = rotation;
-        go.SetActive(true);
+        go.gameObject.SetActive(true);
 
         // increment active count
         m_activeCount++;
-        return go;
+        return go.GetComponent<T>();
     }
 
     /// <summary>
     /// Returns the GameObject back to pool 
     /// </summary>
     /// <param name="go"></param>
-    public void Remove(GameObject go)
+    public void ReturnToPool(GameObject go)
     {
         if (m_inactiveCount == m_poolStack.Length)
         {
